@@ -1,5 +1,5 @@
 FÍGADO:
-    Processo Inflamatório/ Toxêmico:
+    'Processo Inflamatório/ Toxêmico': |
         - Fígado de dimensões normais, contornos regulares, bordos
         - afilados, ecogenicidade reduzida e ecotextura homogênea
         - Sugestivo de hepatite/ processo inflamatório ou toxemia.
@@ -409,13 +409,12 @@ ESTÔMAGO:
         - corpo estranho gástrico.
 
 INTESTINO:
-
-Enterite/ Doença Inflamatório Intestinal
-Alças intestinais com paredes espessadas (medindo cm) e
-alguns segmentos de aspecto corrugado, associado a
-presença de estruturas puntiformes e hiperecogênicas
-dispersas em camada mucosa – Relacionado a enterite/
-doença inflamatória intestinal.
+    Enterite/ Doença Inflamatório Intestinal:
+        - Alças intestinais com paredes espessadas (medindo cm) e
+        - alguns segmentos de aspecto corrugado, associado a
+        - presença de estruturas puntiformes e hiperecogênicas
+        - dispersas em camada mucosa – Relacionado a enterite/
+        - doença inflamatória intestinal.
 
 Úlcera Intestinal
 Visibiliza-se diminuta estrutura hiperecogênica formadora

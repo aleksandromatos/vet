@@ -79,9 +79,12 @@ class UltrasoundReportSystem(QMainWindow):
         organs = ["Fígado", "Vesícula Biliar", "Baço", "Rins", "Bexiga", 
                   "Estômago", "Alças Intestinais", "Pâncreas", "Adrenais", 
                   "Aparelho Reprodutor", "Observações"]
+    
         
         self.organ_texts = {}
         
+        
+        # Inserir abas para cada órgão
         for organ in organs:
             tab = QWidget()
             tab_layout = QVBoxLayout()
