@@ -1,10 +1,11 @@
 import sys
 import os
+import yaml  # <--- Adicionado
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                             QTabWidget, QLabel, QTextEdit, QPushButton, QFileDialog,
-                            QScrollArea, QGridLayout, QFrame, QMessageBox)
-from PyQt5.QtGui import QPixmap, QImage, QFont
-from PyQt5.QtCore import Qt, QSize
+                            QScrollArea, QGridLayout, QFrame, QMessageBox, QCheckBox) # <--- Adicionado QCheckBox
+from PyQt5.QtGui import QPixmap, QFont
+from PyQt5.QtCore import Qt
 from PyQt5.QtPrintSupport import QPrinter, QPrintDialog, QPrintPreviewDialog
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4
@@ -15,8 +16,26 @@ class UltrasoundReportSystem(QMainWindow):
     def __init__(self):
         super().__init__()
         self.image_paths = []
+        self.laudos_data = {} # <--- Dicionário para armazenar os dados do YAML
+        self.checkbox_map = {} # <--- Dicionário para mapear checkboxes de cada órgão
+        self.load_laudos_data() # <--- Carrega os dados na inicialização
         self.initUI()
         
+    def load_laudos_data(self):
+        try:
+            with open('laudos.yaml', 'r', encoding='utf-8') as file:
+                self.laudos_data = yaml.safe_load(file)
+                if not self.laudos_data:
+                    self.laudos_data = {}
+                    raise Exception("O arquivo laudos.yaml está vazio.")
+        except FileNotFoundError:
+            QMessageBox.critical(self, "Erro", "Arquivo 'laudos.yaml' não encontrado. Certifique-se de que ele está na mesma pasta do programa.")
+            # Sai da aplicação se o arquivo de configuração não for encontrado
+            sys.exit(1)
+        except Exception as e:
+            QMessageBox.critical(self, "Erro ao Carregar Dados", f"Não foi possível ler o arquivo 'laudos.yaml':\n{e}")
+            sys.exit(1)
+
     def initUI(self):
         self.setWindowTitle("Sistema de Laudos de Ultrassonografia Veterinária")
         self.setGeometry(100, 100, 1000, 800)
@@ -32,7 +51,7 @@ class UltrasoundReportSystem(QMainWindow):
         header_layout.addWidget(header_label)
         main_layout.addLayout(header_layout)
         
-        # Informações do paciente
+        # Informações do paciente (sem alterações)
         patient_layout = QGridLayout()
         patient_layout.addWidget(QLabel("Nome do Animal:"), 0, 0)
         self.animal_name = QTextEdit()
@@ -72,42 +91,62 @@ class UltrasoundReportSystem(QMainWindow):
         line.setFrameShadow(QFrame.Sunken)
         main_layout.addWidget(line)
         
-        # Tabs para órgãos
+        # ---- Início da Lógica Modificada para as Tabs ----
         self.tab_widget = QTabWidget()
-        
-        # Definir os órgãos para abas
-        organs = ["Fígado", "Vesícula Biliar", "Baço", "Rins", "Bexiga", 
-                  "Estômago", "Alças Intestinais", "Pâncreas", "Adrenais", 
-                  "Aparelho Reprodutor", "Observações"]
-    
-        
         self.organ_texts = {}
         
-        
-        # Inserir abas para cada órgão
-        for organ in organs:
+        # Gera as abas dinamicamente a partir do arquivo YAML
+        for organ, abnormalities in self.laudos_data.items():
             tab = QWidget()
-            tab_layout = QVBoxLayout()
+            tab_layout = QVBoxLayout(tab)
             
-            # Texto padrão para cada órgão
-            default_text = self.get_default_text(organ)
+            # Área de scroll para os checkboxes
+            scroll_area = QScrollArea()
+            scroll_area.setWidgetResizable(True)
+            scroll_widget = QWidget()
+            checkbox_layout = QVBoxLayout(scroll_widget)
+            checkbox_layout.setAlignment(Qt.AlignTop)
             
+            self.checkbox_map[organ] = []
+
+            if abnormalities: # Verifica se existem anormalidades listadas
+                for abnormality_name, description_list in abnormalities.items():
+                    # O YAML retorna uma lista, pegamos o primeiro item.
+                    description = description_list[0] if description_list else "Descrição não encontrada."
+                    
+                    checkbox = QCheckBox(abnormality_name)
+                    checkbox.setToolTip(description)
+                    checkbox.stateChanged.connect(lambda state, org=organ: self.update_report_text(org))
+                    
+                    checkbox_layout.addWidget(checkbox)
+                    self.checkbox_map[organ].append(checkbox)
+
+            scroll_area.setWidget(scroll_widget)
+            
+            # Label indicando a área de resultado
+            result_label = QLabel("Texto do Laudo para este Órgão:")
+            result_label.setFont(QFont("Arial", 10, QFont.Bold))
+            
+            # QTextEdit para exibir o texto concatenado
             text_edit = QTextEdit()
-            text_edit.setText(default_text)
+            text_edit.setReadOnly(True) # O texto é gerado pelos checkboxes
             self.organ_texts[organ] = text_edit
             
+            # Adicionando os widgets ao layout da aba
+            tab_layout.addWidget(scroll_area)
+            tab_layout.addWidget(result_label)
             tab_layout.addWidget(text_edit)
-            tab.setLayout(tab_layout)
+            
             self.tab_widget.addTab(tab, organ)
         
         main_layout.addWidget(self.tab_widget)
-        
-        # Área para imagens
+        # ---- Fim da Lógica Modificada para as Tabs ----
+
+        # Área de imagens (sem alterações)
         images_label = QLabel("Imagens do Ultrassom")
         images_label.setFont(QFont("Arial", 12, QFont.Bold))
         main_layout.addWidget(images_label)
         
-        # Layout para botões das imagens
         img_buttons_layout = QHBoxLayout()
         add_img_btn = QPushButton("Adicionar Imagens")
         add_img_btn.clicked.connect(self.add_images)
@@ -117,7 +156,6 @@ class UltrasoundReportSystem(QMainWindow):
         img_buttons_layout.addWidget(clear_img_btn)
         main_layout.addLayout(img_buttons_layout)
         
-        # Área de exibição de imagens com scroll
         self.images_scroll = QScrollArea()
         self.images_scroll.setWidgetResizable(True)
         self.images_widget = QWidget()
@@ -125,7 +163,7 @@ class UltrasoundReportSystem(QMainWindow):
         self.images_scroll.setWidget(self.images_widget)
         main_layout.addWidget(self.images_scroll)
         
-        # Botões de ação
+        # Botões de ação (sem alterações)
         buttons_layout = QHBoxLayout()
         preview_btn = QPushButton("Visualizar Impressão")
         preview_btn.clicked.connect(self.print_preview)
@@ -142,64 +180,53 @@ class UltrasoundReportSystem(QMainWindow):
         main_widget.setLayout(main_layout)
         self.setCentralWidget(main_widget)
     
-    def get_default_text(self, organ):
-        # Textos padrão para cada órgão
-        defaults = {
-            "Fígado": "Parênquima hepático de dimensões normais, com ecogenicidade normal, contornos regulares e ecotextura homogênea. Não foram observadas lesões focais ou difusas. Vasos hepáticos com calibre e trajeto normais.",
-            
-            "Vesícula Biliar": "Vesícula biliar de dimensões normais, com formato piriforme, contornos regulares e conteúdo anecogênico. Parede com espessura normal. Não foram observados cálculos ou sedimentos em seu interior.",
-            
-            "Baço": "Baço de dimensões normais, com ecogenicidade e ecotextura preservadas. Contornos regulares e parênquima homogêneo. Não foram observadas lesões focais ou difusas.",
-            
-            "Rins": "Rins de dimensões, contornos e ecogenicidade normais. Relação córtico-medular preservada. Não foram observadas dilatações do sistema pielocalicial ou presença de cálculos. Região pélvica sem alterações.",
-            
-            "Bexiga": "Bexiga de paredes finas e regulares, com conteúdo anecogênico. Volume adequado no momento do exame. Não foram observados cálculos, sedimentos ou massas.",
-            
-            "Estômago": "Estômago com paredes de espessura normal, estratificação das camadas preservada. Conteúdo e peristaltismo compatíveis com a normalidade.",
-            
-            "Alças Intestinais": "Alças intestinais com paredes de espessura normal, estratificação das camadas preservada. Peristaltismo dentro dos padrões de normalidade. Não foram observadas obstruções ou massas.",
-            
-            "Pâncreas": "Pâncreas de dimensões e ecogenicidade normais, sem alterações estruturais evidentes.",
-            
-            "Adrenais": "Glândulas adrenais com forma, dimensões e ecogenicidade normais.",
-            
-            "Aparelho Reprodutor": "Estruturas do aparelho reprodutor sem alterações evidentes ao exame ultrassonográfico.",
-            
-            "Observações": "Nenhuma observação adicional."
-        }
+    # <--- Nova função para atualizar o texto do laudo ----
+    def update_report_text(self, organ):
+        """
+        Chamado sempre que um checkbox de um órgão é marcado/desmarcado.
+        Ele reconstrói o texto para o QTextEdit daquele órgão.
+        """
+        selected_texts = []
+        # Itera sobre todos os checkboxes do órgão específico
+        for checkbox in self.checkbox_map.get(organ, []):
+            if checkbox.isChecked():
+                # Adiciona o texto do tooltip à lista se o checkbox estiver marcado
+                selected_texts.append(checkbox.toolTip())
         
-        return defaults.get(organ, "")
-    
-    def add_images(self):
-        files, _ = QFileDialog.getOpenFileNames(self, "Selecionar Imagens", "", 
-                                              "Imagens (*.png *.jpg *.jpeg *.bmp)")
+        # Concatena os textos com um espaço e uma nova linha para melhor formatação
+        final_text = "\n\n".join(selected_texts)
+        
+        # Atualiza o QTextEdit correspondente
+        self.organ_texts[organ].setText(final_text)
+
+    # Função get_default_text não é mais necessária e foi removida
+
+    def add_images(self, files=None): # Pequena alteração para consistência
+        if not files:
+            files, _ = QFileDialog.getOpenFileNames(self, "Selecionar Imagens", "", 
+                                                  "Imagens (*.png *.jpg *.jpeg *.bmp)")
         
         if not files:
             return
             
-        # Limpar o layout atual
         self.clear_images()
-        
-        # Armazenar os caminhos das imagens selecionadas
         self.image_paths = files
         
-        # Adicionar as imagens à área de exibição
         col = 0
         row = 0
-        max_cols = 3  # Número máximo de colunas
+        max_cols = 3
         
         for img_path in self.image_paths:
             if col >= max_cols:
                 col = 0
                 row += 1
                 
-            # Carregar e redimensionar a imagem
             pixmap = QPixmap(img_path)
-            img_width = int(2.59 * 37.8)  # Converter cm para pixels (aproximadamente)
-            img_height = int(4.65 * 37.8)  # Converter cm para pixels (aproximadamente)
+            # Mantido o tamanho para consistência com o PDF
+            img_width = int(2.59 * 37.8)
+            img_height = int(4.65 * 37.8)
             pixmap = pixmap.scaled(img_width, img_height, Qt.KeepAspectRatio, Qt.SmoothTransformation)
             
-            # Criar e adicionar o label da imagem
             img_label = QLabel()
             img_label.setPixmap(pixmap)
             img_label.setAlignment(Qt.AlignCenter)
@@ -207,24 +234,20 @@ class UltrasoundReportSystem(QMainWindow):
             img_label.setStyleSheet("border: 1px solid #cccccc;")
             
             self.images_layout.addWidget(img_label, row, col)
-            col += 1
     
     def clear_images(self):
-        # Limpar todas as imagens
         self.image_paths = []
-        
-        # Remover widgets do layout
         while self.images_layout.count():
             item = self.images_layout.takeAt(0)
             widget = item.widget()
             if widget:
                 widget.deleteLater()
     
+    # As funções abaixo (get_complete_report, print, save_pdf) funcionam sem alterações,
+    # pois elas já leem do dicionário self.organ_texts, que continua sendo atualizado.
+    
     def get_complete_report(self):
-        # Gerar o relatório completo
         report = ""
-        
-        # Informações do paciente
         report += "LAUDO DE ULTRASSONOGRAFIA VETERINÁRIA\n\n"
         report += f"Nome do Animal: {self.animal_name.toPlainText()}\n"
         report += f"Espécie: {self.species.toPlainText()}\n"
@@ -233,21 +256,20 @@ class UltrasoundReportSystem(QMainWindow):
         report += f"Proprietário: {self.owner.toPlainText()}\n"
         report += f"Data: {self.date.toPlainText()}\n\n"
         
-        # Informações dos órgãos
         for organ in self.organ_texts:
-            report += f"{organ.upper()}:\n"
-            report += f"{self.organ_texts[organ].toPlainText()}\n\n"
+            text = self.organ_texts[organ].toPlainText()
+            if text: # Só adiciona ao relatório se houver texto
+                report += f"{organ.upper()}:\n"
+                report += f"{text}\n\n"
         
         return report
     
     def print_preview(self):
-        # Visualizar antes de imprimir
         dialog = QPrintPreviewDialog()
         dialog.paintRequested.connect(self.print_document)
         dialog.exec_()
     
     def print_report(self):
-        # Imprimir o relatório
         printer = QPrinter(QPrinter.HighResolution)
         dialog = QPrintDialog(printer, self)
         
@@ -255,19 +277,15 @@ class UltrasoundReportSystem(QMainWindow):
             self.print_document(printer)
     
     def print_document(self, printer):
-        # Função para imprimir o documento
         from PyQt5.QtGui import QTextDocument
-        
         document = QTextDocument()
         document.setHtml(self.get_formatted_html())
         document.print_(printer)
     
     def get_formatted_html(self):
-        # Formatar o relatório em HTML para impressão
         html = "<html><body>"
         html += "<h1 style='text-align:center;'>LAUDO DE ULTRASSONOGRAFIA VETERINÁRIA</h1>"
         
-        # Informações do paciente
         html += "<table width='100%' style='border-collapse: collapse;'>"
         html += f"<tr><td><b>Nome do Animal:</b> {self.animal_name.toPlainText()}</td>"
         html += f"<td><b>Espécie:</b> {self.species.toPlainText()}</td></tr>"
@@ -277,26 +295,28 @@ class UltrasoundReportSystem(QMainWindow):
         html += f"<td><b>Data:</b> {self.date.toPlainText()}</td></tr>"
         html += "</table><hr>"
         
-        # Informações dos órgãos - todos os órgãos primeiro
         for organ in self.organ_texts:
-            html += f"<h3>{organ}</h3>"
-            text = self.organ_texts[organ].toPlainText().replace('\n', '<br>')
-            html += f"<p>{text}</p>"
+            text = self.organ_texts[organ].toPlainText()
+            if text: # Só adiciona ao relatório se houver texto
+                html += f"<h3>{organ}</h3>"
+                # O texto já está formatado, basta substituir quebras de linha por <br>
+                html += f"<p>{text.replace('/n', '<br>')}</p>"
         
-        # Adicionar uma quebra clara antes das imagens
         html += "<div style='page-break-before: always;'></div>" if self.image_paths else ""
         
-        # Adicionar imagens ao final
         if self.image_paths:
             html += "<h3>Imagens</h3>"
             html += "<table style='width:100%; border-collapse: collapse;'><tr>"
             
             for i, img_path in enumerate(self.image_paths):
-                if i > 0 and i % 3 == 0:  # 3 imagens por linha
+                if i > 0 and i % 3 == 0:
                     html += "</tr><tr>"
                 
-                html += f"<td style='text-align:center;'>"
-                html += f"<img src='{img_path}' width='98px' height='176px' style='object-fit:contain;'>"
+                # Usando file URI para garantir que caminhos com caracteres especiais funcionem
+                from pathlib import Path
+                img_uri = Path(img_path).as_uri()
+                html += f"<td style='text-align:center; padding: 5px;'>"
+                html += f"<img src='{img_uri}' style='width:98px; height:176px; object-fit:contain; border: 1px solid #ccc;'>"
                 html += "</td>"
             
             html += "</tr></table>"
@@ -305,8 +325,7 @@ class UltrasoundReportSystem(QMainWindow):
         return html
     
     def save_as_pdf(self):
-        file_path, _ = QFileDialog.getSaveFileName(
-            self, "Salvar como PDF", "", "PDF Files (*.pdf)")
+        file_path, _ = QFileDialog.getSaveFileName(self, "Salvar como PDF", "", "PDF Files (*.pdf)")
         
         if not file_path:
             return
@@ -315,148 +334,122 @@ class UltrasoundReportSystem(QMainWindow):
             file_path += '.pdf'
         
         try:
-            # Criar PDF usando ReportLab
             c = canvas.Canvas(file_path, pagesize=A4)
             width, height = A4
             
+            # Helper para desenhar texto com quebra de linha
+            def draw_wrapped_text(canvas_obj, text, x, y, max_width, font_name, font_size):
+                text_object = canvas_obj.beginText(x, y)
+                text_object.setFont(font_name, font_size)
+                
+                lines = []
+                for paragraph in text.split('\n'):
+                    words = paragraph.split()
+                    current_line = ""
+                    for word in words:
+                        test_line = current_line + " " + word if current_line else word
+                        if canvas_obj.stringWidth(test_line, font_name, font_size) < max_width:
+                            current_line = test_line
+                        else:
+                            lines.append(current_line)
+                            current_line = word
+                    lines.append(current_line)
+
+                for line in lines:
+                    text_object.textLine(line)
+                
+                canvas_obj.drawText(text_object)
+                return text_object.getY() - y # Retorna a altura total do texto desenhado
+
             # Título
             c.setFont("Helvetica-Bold", 16)
             c.drawCentredString(width/2, height - 30, "LAUDO DE ULTRASSONOGRAFIA VETERINÁRIA")
             
             # Informações do paciente
-            c.setFont("Helvetica-Bold", 12)
             y = height - 60
-            
-            # Linha 1
+            c.setFont("Helvetica-Bold", 12)
             c.drawString(50, y, f"Nome do Animal: ")
             c.setFont("Helvetica", 12)
             c.drawString(150, y, self.animal_name.toPlainText())
-            
             c.setFont("Helvetica-Bold", 12)
             c.drawString(width/2, y, f"Espécie: ")
             c.setFont("Helvetica", 12)
             c.drawString(width/2 + 60, y, self.species.toPlainText())
             
-            # Linha 2
             y -= 20
             c.setFont("Helvetica-Bold", 12)
             c.drawString(50, y, f"Raça: ")
             c.setFont("Helvetica", 12)
             c.drawString(90, y, self.breed.toPlainText())
-            
             c.setFont("Helvetica-Bold", 12)
             c.drawString(width/2, y, f"Idade: ")
             c.setFont("Helvetica", 12)
             c.drawString(width/2 + 50, y, self.age.toPlainText())
             
-            # Linha 3
             y -= 20
             c.setFont("Helvetica-Bold", 12)
             c.drawString(50, y, f"Proprietário: ")
             c.setFont("Helvetica", 12)
             c.drawString(130, y, self.owner.toPlainText())
-            
             c.setFont("Helvetica-Bold", 12)
             c.drawString(width/2, y, f"Data: ")
             c.setFont("Helvetica", 12)
             c.drawString(width/2 + 40, y, self.date.toPlainText())
             
-            # Linha separadora
-            y -= 10
+            y -= 15
             c.line(50, y, width-50, y)
-            
+            y -= 25
+
             # Conteúdo dos órgãos
-            y -= 30
-            
             for organ in self.organ_texts:
-                if y < 100:  # Se estiver próximo do final da página, crie uma nova
+                text = self.organ_texts[organ].toPlainText()
+                if not text:
+                    continue
+
+                if y < 100:
                     c.showPage()
                     y = height - 50
                 
                 c.setFont("Helvetica-Bold", 12)
                 c.drawString(50, y, f"{organ}:")
-                y -= 20
+                y -= 5
                 
-                # Texto do órgão (pode precisar quebrar em várias linhas)
-                text = self.organ_texts[organ].toPlainText()
-                c.setFont("Helvetica", 10)
-                
-                # Texto com quebra de linha automática
-                text_object = c.beginText(50, y)
-                text_object.setFont("Helvetica", 10)
-                
-                # Quebrar o texto em linhas para caber na página
-                lines = []
-                current_line = ""
-                for word in text.split():
-                    test_line = current_line + " " + word if current_line else word
-                    if c.stringWidth(test_line, "Helvetica", 10) < width - 100:
-                        current_line = test_line
-                    else:
-                        lines.append(current_line)
-                        current_line = word
-                
-                if current_line:
-                    lines.append(current_line)
-                
-                # Adicionar linhas ao texto
-                for line in lines:
-                    text_object.textLine(line)
-                    y -= 12  # Reduzir a posição Y para a próxima linha
-                
-                c.drawText(text_object)
-                y -= 20  # Espaço adicional após o texto de cada órgão
-            
+                text_height = draw_wrapped_text(c, text, 50, y, width - 100, "Helvetica", 10)
+                y += text_height - 20 # Ajusta y com base na altura do texto
+
+
             # Adicionar imagens
             if self.image_paths:
-                if y < 200:  # Se estiver próximo do final da página, crie uma nova
+                if y < 200:
                     c.showPage()
                     y = height - 50
                 
                 c.setFont("Helvetica-Bold", 12)
                 c.drawString(50, y, "Imagens:")
-                y -= 30
+                y -= 15
                 
-                # Definir tamanho das imagens (em cm convertidos para pontos)
                 img_width = 2.59 * cm
                 img_height = 4.65 * cm
                 
-                # Organizar as imagens em 3 colunas
                 col = 0
                 start_x = 50
+                start_y = y
                 
                 for img_path in self.image_paths:
-                    if col >= 3:  # Nova linha após 3 imagens
+                    if col >= 3:
                         col = 0
-                        y -= (img_height + 10)  # Espaço vertical entre as linhas
+                        start_y -= (img_height + 10)
                         
-                        if y < img_height + 50:  # Se não couber na página atual
+                        if start_y < img_height + 50:
                             c.showPage()
-                            y = height - 50
+                            start_y = height - 50
                     
-                    # Calcular posição X para a imagem atual
                     x = start_x + col * (img_width + 20)
                     
-                    # Adicionar a imagem
                     try:
-                        img = Image.open(img_path)
-                        img_aspect = img.width / img.height
-                        
-                        # Calcular dimensões respeitando o aspect ratio
-                        if img_aspect > (img_width / img_height):  # Imagem mais larga
-                            new_width = img_width
-                            new_height = new_width / img_aspect
-                        else:  # Imagem mais alta
-                            new_height = img_height
-                            new_width = new_height * img_aspect
-                        
-                        # Centralizar a imagem dentro do espaço alocado
-                        x_offset = (img_width - new_width) / 2
-                        y_offset = (img_height - new_height) / 2
-                        
-                        c.drawImage(img_path, x + x_offset, y - new_height - y_offset, width=new_width, height=new_height)
+                        c.drawImage(img_path, x, start_y - img_height, width=img_width, height=img_height, preserveAspectRatio=True, anchor='c')
                     except Exception as e:
-                        print(f"Erro ao adicionar imagem: {e}")
+                        print(f"Erro ao adicionar imagem ao PDF: {e}")
                     
                     col += 1
             
@@ -465,6 +458,7 @@ class UltrasoundReportSystem(QMainWindow):
             
         except Exception as e:
             QMessageBox.critical(self, "Erro", f"Erro ao salvar o PDF: {str(e)}")
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
