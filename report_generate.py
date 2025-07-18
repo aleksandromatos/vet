@@ -23,7 +23,7 @@ class UltrasoundReportSystem(QMainWindow):
         
     def load_laudos_data(self):
         try:
-            with open('laudos.yaml', 'r', encoding='utf-8') as file:
+            with open('laudo_corrigido.yaml', 'r', encoding='utf-8') as file:
                 self.laudos_data = yaml.safe_load(file)
                 if not self.laudos_data:
                     self.laudos_data = {}
