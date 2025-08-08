@@ -2,8 +2,10 @@
 # -*- coding: utf-8 -*-
 
 import sys
-import os
 import yaml
+import logging
+import datetime
+
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                             QTabWidget, QLabel, QTextEdit, QPushButton, QFileDialog,
                             QScrollArea, QGridLayout, QFrame, QMessageBox, QCheckBox)
@@ -14,6 +16,7 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import cm
 from PIL import Image
+from pathlib import Path
 
 class UltrasoundReportSystem(QMainWindow):
     def __init__(self):
@@ -21,9 +24,19 @@ class UltrasoundReportSystem(QMainWindow):
         self.image_paths = []
         self.laudos_data = {} # <--- Dicionário para armazenar os dados do YAML
         self.checkbox_map = {} # <--- Dicionário para mapear checkboxes de cada órgão
+        self.logger = logging.getLogger(__name__)
         self.load_laudos_data() # <--- Carrega os dados na inicialização
         self.initUI()
-        
+        self.current_path = str(Path(__file__).parent.resolve())
+        print(f"Current path: {self.current_path}")
+    
+    # def confLogging(self):
+    #     """
+    #     Configura o logging para registrar mensagens de depuração e erros.
+    #     """
+    #     logging.basicConfig(filemode=datetime.now()\
+    #         strftime())     
+    
     def load_laudos_data(self):
         try:
             with open('laudo_corrigido.yaml', 'r', encoding='utf-8') as file:
@@ -101,6 +114,7 @@ class UltrasoundReportSystem(QMainWindow):
         
         # Gera as abas dinamicamente a partir do arquivo YAML
         for organ, abnormalities in self.laudos_data.items():
+                        
             tab = QWidget()
             tab_layout = QVBoxLayout(tab)
             
@@ -191,6 +205,7 @@ class UltrasoundReportSystem(QMainWindow):
         Ele reconstrói o texto para o QTextEdit daquele órgão.
         """
         selected_texts = []
+        print(f"Atualizando texto para o órgão: {organ}")
         # Itera sobre todos os checkboxes do órgão específico
         for checkbox in self.checkbox_map.get(organ, []):
             if checkbox.isChecked():
