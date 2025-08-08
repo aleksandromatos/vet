@@ -38,7 +38,7 @@ deactivate () {
 # unset irrelevant variables
 deactivate nondestructive
 
-VIRTUAL_ENV=/home/aleksandro/Documentos/temp/vet/laudo
+VIRTUAL_ENV=/mnt/windows/0-Projetos/10-Fomulario_Vet/vet/laudo
 export VIRTUAL_ENV
 
 _OLD_VIRTUAL_PATH="$PATH"

@@ -33,7 +33,7 @@ end
 # Unset irrelevant variables.
 deactivate nondestructive
 
-set -gx VIRTUAL_ENV /home/aleksandro/Documentos/temp/vet/laudo
+set -gx VIRTUAL_ENV /mnt/windows/0-Projetos/10-Fomulario_Vet/vet/laudo
 
 set -gx _OLD_VIRTUAL_PATH $PATH
 set -gx PATH "$VIRTUAL_ENV/"bin $PATH

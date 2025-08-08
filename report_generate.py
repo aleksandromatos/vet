@@ -1,9 +1,12 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
 import sys
 import os
-import yaml  # <--- Adicionado
+import yaml
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                             QTabWidget, QLabel, QTextEdit, QPushButton, QFileDialog,
-                            QScrollArea, QGridLayout, QFrame, QMessageBox, QCheckBox) # <--- Adicionado QCheckBox
+                            QScrollArea, QGridLayout, QFrame, QMessageBox, QCheckBox)
 from PyQt5.QtGui import QPixmap, QFont
 from PyQt5.QtCore import Qt
 from PyQt5.QtPrintSupport import QPrinter, QPrintDialog, QPrintPreviewDialog
@@ -28,10 +31,11 @@ class UltrasoundReportSystem(QMainWindow):
                 if not self.laudos_data:
                     self.laudos_data = {}
                     raise Exception("O arquivo laudos.yaml está vazio.")
+                
         except FileNotFoundError:
             QMessageBox.critical(self, "Erro", "Arquivo 'laudos.yaml' não encontrado. Certifique-se de que ele está na mesma pasta do programa.")
-            # Sai da aplicação se o arquivo de configuração não for encontrado
             sys.exit(1)
+            
         except Exception as e:
             QMessageBox.critical(self, "Erro ao Carregar Dados", f"Não foi possível ler o arquivo 'laudos.yaml':\n{e}")
             sys.exit(1)
